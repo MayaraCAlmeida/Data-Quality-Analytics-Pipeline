@@ -1,22 +1,11 @@
-"""
-Diagnóstico de Qualidade de Dados
-============================================
-Uso:
-    python diagnostico_dados.py pedidos.csv itens_pedido.csv
-
-Detecta automaticamente:
-- Lacunas de dias/meses sem dados
-- Meses com volume anormalmente baixo
-- Valores nulos e duplicatas
-- Inconsistências entre os dois arquivos
-"""
+# Diagnóstico de Qualidade de Dados
 
 import pandas as pd
 import sys
 from datetime import timedelta
 
 
-# ── Cores para o terminal ──────────────────────────────────────────────────
+# Cores para o terminal 
 RED = "\033[91m"
 YELLOW = "\033[93m"
 GREEN = "\033[92m"
@@ -40,14 +29,14 @@ def titulo(msg):
     print(f"\n{BOLD}{'─'*55}\n  {msg}\n{'─'*55}{RESET}")
 
 
-# ── Carregamento ───────────────────────────────────────────────────────────
+# Carregamento
 def carregar(pedidos_path, itens_path):
     pedidos = pd.read_csv(pedidos_path, parse_dates=["data_pedido"])
     itens = pd.read_csv(itens_path)
     return pedidos, itens
 
 
-# ── 1. Nulos e tipos ───────────────────────────────────────────────────────
+# Nulos e tipos 
 def checar_nulos(pedidos, itens):
     titulo("1. VALORES NULOS")
     for nome, df in [("pedidos", pedidos), ("itens_pedido", itens)]:
@@ -60,7 +49,7 @@ def checar_nulos(pedidos, itens):
                 erro(f"{nome}.{col}: {n} nulos ({n/len(df)*100:.1f}%)")
 
 
-# ── 2. Duplicatas ──────────────────────────────────────────────────────────
+# Duplicatas 
 def checar_duplicatas(pedidos, itens):
     titulo("2. DUPLICATAS")
     dup_p = pedidos.duplicated(subset="pedido_id").sum()
@@ -75,7 +64,7 @@ def checar_duplicatas(pedidos, itens):
         erro(f"itens: {dup_i} item_id duplicados!")
 
 
-# ── 3. Lacunas de dias ─────────────────────────────────────────────────────
+# Lacunas de dias
 def checar_lacunas_dias(pedidos):
     titulo("3. LACUNAS DE DIAS (dias sem nenhum pedido)")
     datas = sorted(pedidos["data_pedido"].dt.normalize().unique())
@@ -106,7 +95,7 @@ def checar_lacunas_dias(pedidos):
                 print(f"     • {a.date()} → {b.date()} ({dias} dias)")
 
 
-# ── 4. Anomalia de volume mensal ───────────────────────────────────────────
+# Anomalia de volume mensal 
 def checar_volume_mensal(pedidos, limiar_zscore=2.0):
     titulo("4. MESES COM VOLUME ANÔMALO")
     pedidos = pedidos.copy()
@@ -145,7 +134,7 @@ def checar_volume_mensal(pedidos, limiar_zscore=2.0):
         ok("Nenhum mês com anomalia estatística significativa")
 
 
-# ── 5. Consistência entre tabelas ─────────────────────────────────────────
+# Consistência entre tabelas 
 def checar_consistencia(pedidos, itens):
     titulo("5. CONSISTÊNCIA ENTRE TABELAS")
 
@@ -184,7 +173,7 @@ def checar_consistencia(pedidos, itens):
         print(divergentes.head(10).to_string())
 
 
-# ── 6. Resumo final ────────────────────────────────────────────────────────
+# Resumo final 
 def resumo(pedidos):
     titulo("RESUMO GERAL")
     d_min = pedidos["data_pedido"].min().date()
@@ -196,7 +185,7 @@ def resumo(pedidos):
     print()
 
 
-# ── Main ───────────────────────────────────────────────────────────────────
+# Main 
 def main():
     if len(sys.argv) < 3:
         # Tenta caminhos padrão
