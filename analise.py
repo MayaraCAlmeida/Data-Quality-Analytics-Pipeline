@@ -9,44 +9,43 @@ print(pedidos.head())
 print(itens.head())
 
 
-### DEPOIS ESSE ###
-## quantas linhas, tipos, alguma inconformidade ##
+## quantas linhas, tipos, inconformidade
 print(pedidos.shape)
 print(pedidos.info())
 print(pedidos.isnull().sum())
 
 
-### remover duplicados ###
+### remover duplicados
 pedidos = pedidos.drop_duplicates(subset="pedido_id")
 
 
-### tratar os nulos ###
+### tratar os nulos
 pedidos = pedidos.dropna(subset=["valor_total"])
 
 
-### converter a data ###
+### converter a data
 pedidos["data_pedido"] = pd.to_datetime(pedidos["data_pedido"])
 
 
-## faturamento total ##
+## faturamento total
 print(pedidos["valor_total"].sum())
 
 
-### pedido por status ### apv/rep/can/dev
+### pedido por status - apv/rep/can/dev
 print(pedidos["status"].value_counts())
 
 
-### produto q mais vende ###
+### produto q mais vende
 print(itens.groupby("produto")["quantidade"].sum().sort_values(ascending=False))
 
 
-### valor venda por mês ###
+### valor venda por mês
 pedidos["mes"] = pedidos["data_pedido"].dt.month
 
 print(pedidos.groupby("mes")["valor_total"].sum())
 
 
-### Observado: queda brusca no mês 07 e aumento brusco no mês 08 ###
-### Observa-se descontinuidade no volume de pedidos em julho ##
-### Pode indicar falha operacional, problema de captura ou sazonalidade ##
-### Recomenda-se validar com área de negócio ###
+### Observado: queda brusca no mês 07 e aumento brusco no mês 08
+### descontinuidade no volume de pedidos em julho
+### pode indicar falha operacional, problema de captura ou sazonalidade
+### recomenda-se validar com área de negócio
