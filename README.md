@@ -153,3 +153,4 @@ python diagnostico_dados.py pedidos.csv itens_pedido.csv
 # Investigação detalhada de anomalias
 python investigar_anomalias.py
 ```
+
