@@ -1,20 +1,18 @@
-# Análise de Qualidade de Dados e Auditoria de Vendas
+# Auditoria de Qualidade de Dados — Pipeline de Vendas
 
-## Resumo Executivo
+## Resumo
 
-Auditoria analítica de dados de vendas com foco em validação de qualidade, detecção de anomalias e geração de KPIs confiáveis em Python, PostgreSQL e Power BI — identificando uma falha de carga de dados que poderia ter levado a decisões estratégicas equivocadas.
-> Dataset sintético gerado para simular um ambiente corporativo real.
+Projeto de auditoria em dados de vendas usando Python, PostgreSQL e Power BI. O foco não foi gerar métricas — foi garantir que os dados faziam sentido antes de qualquer análise.
 
+No processo, encontrei uma falha de carga que teria distorcido completamente qualquer indicador de performance gerado em cima desses dados.
 
-## Objetivo
-
-Este projeto simula um cenário real de auditoria analítica em dados de vendas.
-
-Antes de gerar indicadores estratégicos, foi realizada uma validação completa da qualidade dos dados para evitar conclusões incorretas de negócio. O foco principal não foi apenas calcular métricas, mas garantir que os dados fossem confiáveis antes de qualquer interpretação.
+> Dataset sintético criado para simular um ambiente corporativo real.
 
 ---
 
 ## Estrutura do Projeto
+
+```
 .
 ├── pedidos.csv
 ├── itens_pedido.csv
@@ -24,107 +22,69 @@ Antes de gerar indicadores estratégicos, foi realizada uma validação completa
 ├── postgres.sql
 ├── DASHBOARD.pbix
 └── tema-dark-dashboard.json
-
+```
 
 ---
 
 ## Fluxo de Trabalho
 
-### Exploração Inicial em Python
+### Exploração Inicial — Python
 
-A análise começou com `analise.py`, onde:
+Comecei com `analise.py` pra ter uma visão geral: carreguei as bases, removi duplicatas, tratei nulos, converti datas e calculei receita e volume por mês.
 
-- As bases foram carregadas
-- Duplicatas removidas
-- Valores nulos tratados
-- Campo de data convertido
-- Receita total, status e faturamento mensal calculados
-
-Durante a análise exploratória, foi identificada uma anomalia significativa:
-
-- Queda brusca no volume de pedidos em julho  
-- Aumento acentuado em agosto  
-
-Inicialmente poderia ser sazonalidade, mas a descontinuidade levantou a hipótese de falha operacional ou problema na captura de dados.
+Foi aí que apareceu a primeira estranheza: julho com volume muito abaixo do normal e agosto com um pico logo em seguida. Poderia ser sazonalidade, mas a queda foi abrupta demais pra ignorar.
 
 ---
 
-### Análise Estruturada no PostgreSQL
+### Validação Estruturada — PostgreSQL
 
-As bases foram importadas para PostgreSQL para validação estruturada via `postgres.sql`.
+Importei as bases pro PostgreSQL e fui fundo via `postgres.sql`:
 
-As consultas incluíram:
-
-- Receita mensal calculada a partir dos itens (`SUM(quantidade * preco_unitario)`)
+- Receita mensal recalculada pelos itens (`SUM(quantidade * preco_unitario)`)
 - Taxa de cancelamento por mês
-- Ticket médio por cliente
-- Top 10 clientes por receita
+- Ticket médio e top 10 clientes por receita
 - Receita por categoria ao longo do tempo
-- Identificação de pedidos com `valor_total` nulo
-- Detecção de divergências entre `valor_total` e soma dos itens
-- Criação da view `pedidos_receita_corrigida` usando `COALESCE`
+- Pedidos com `valor_total` nulo
+- Divergências entre `valor_total` e soma dos itens
+- View `pedidos_receita_corrigida` com `COALESCE` pra corrigir os nulos
 - Verificação de duplicidade
-- Análise de volume mensal
 
-### Principais achados técnicos:
+**O que encontrei:**
 
 - 106 pedidos com `valor_total` nulo (2,1%)
 - 100 `pedido_id` duplicados
-- 246 pedidos com divergência entre `valor_total` e soma dos itens  
-  (divergências atribuídas a regras de negócio (frete, descontos) ou inconsistências de entrada de dados.)
+- 246 pedidos com valor divergente da soma dos itens — parte atribuída a frete e desconto, parte a erro mesmo
 
 ---
 
-### Dashboard no Power BI
+### Dashboard — Power BI
 
-Com os dados tratados, foi desenvolvido um dashboard em `DASHBOARD.pbix` utilizando DAX para acompanhamento de:
+Com os dados tratados, montei o `DASHBOARD.pbix` com DAX pra acompanhar receita, volume, ticket médio, taxa por status e evolução mensal.
 
-- Receita total
-- Volume de pedidos
-- Ticket médio
-- Taxa por status
-- Evolução mensal
-
-O tema visual foi configurado via `tema-dark-dashboard.json`.
-
-Visualmente, a anomalia de julho tornou-se ainda mais evidente.
+Visualmente, a anomalia de julho ficou ainda mais evidente. O tema dark foi configurado via `tema-dark-dashboard.json`.
 
 ---
 
-### Diagnóstico Automatizado de Qualidade
+### Diagnóstico Automatizado
 
-Para evitar análise subjetiva, foram criados dois scripts automatizados:
+Pra não depender de análise visual, criei dois scripts que rodam no terminal:
 
 #### `diagnostico_dados.py`
-
-Detecta automaticamente:
-
-- Valores nulos por coluna
+Varredura completa da base:
+- Nulos por coluna
 - Duplicatas (`pedido_id` e `item_id`)
 - Lacunas de dias sem pedidos
-- Meses com volume anômalo (z-score)
-- Inconsistências entre tabelas:
-  - Itens órfãos
-  - Pedidos sem itens
-  - Divergência de valores
-
----
+- Meses com volume anômalo via z-score
+- Consistência entre tabelas: itens órfãos, pedidos sem item, divergência de valores
 
 #### `investigar_anomalias.py`
-
-Aprofunda a investigação dos meses anômalos:
-
-- Calcula cobertura de dias com pedido
-- Classifica como:
-  - Mês incompleto (carga parcial)
-  - Queda real de volume
-- Identifica concentração artificial de pedidos em meses subsequentes
-
-Ambos os scripts são executados via terminal, garantindo reprodutibilidade.
+Drill-down nos meses que o diagnóstico sinalizou:
+- Cobertura de dias com pedido no mês
+- Classifica se foi queda real ou carga parcial de dados
 
 ---
 
-## Resultados do Diagnóstico
+## Resultados
 
 | Indicador | Resultado |
 |-----------|-----------|
@@ -141,52 +101,45 @@ Ambos os scripts são executados via terminal, garantindo reprodutibilidade.
 
 ## Anomalias Identificadas
 
-### Julho/2025  
-- 32 pedidos (z = -2.4)  
-- Apenas 2 dias com registros  
-- Cobertura: 6,5%  
+### Julho/2025
+- 32 pedidos (z = -2.4)
+- Apenas 2 dias com registros
+- Cobertura: 6,5%
 
-**Conclusão:** mês incompleto por carga parcial de dados.
-
----
-
-### Janeiro/2026  
-- 13 pedidos (z = -2.5)  
-- Cobertura: 3,2%  
-
-**Conclusão:** extração incompleta.
+**Conclusão:** carga parcial de dados — o mês não estava incompleto por falta de vendas.
 
 ---
 
-### Agosto/2025  
-- 723 pedidos (z = +1.9)  
+### Janeiro/2026
+- 13 pedidos (z = -2.5)
+- Cobertura: 3,2%
 
-Provável concentração de pedidos que deveriam ter sido capturados em julho.
+**Conclusão:** extração incompleta, mesmo padrão de julho.
 
 ---
 
-## Insight Principal
+### Agosto/2025
+- 723 pedidos (z = +1.9)
 
-A anomalia identificada não representava uma queda real de demanda, mas uma falha na carga de dados.
+Pico logo depois de julho. Provavelmente pedidos que deveriam ter sido capturados em julho e chegaram com atraso na base.
 
-Sem a validação de qualidade, a empresa poderia:
+---
 
-- Supor queda de vendas  
-- Questionar desempenho comercial  
-- Tomar decisões estratégicas equivocadas  
+## Conclusão
 
-Este projeto reforça um princípio fundamental da análise de dados:
+Sem a auditoria, qualquer análise de performance teria mostrado uma queda brusca em julho seguida de recuperação em agosto — e alguém poderia tomar uma decisão de negócio em cima disso.
+
+A queda não existia. Era dado faltando.
 
 > Qualidade vem antes de insight.
 
 ---
 
-## Tecnologias Utilizadas
+## Tecnologias
 
 - Python (Pandas)
 - PostgreSQL
 - Power BI (DAX)
-- SQL
 - Estatística básica (z-score)
 
 ---
@@ -199,13 +152,4 @@ python diagnostico_dados.py pedidos.csv itens_pedido.csv
 
 # Investigação detalhada de anomalias
 python investigar_anomalias.py
-
-## Skills Demonstradas
-
-- Data Quality Auditing
-- Data Cleaning & Validation
-- SQL Analytics (PostgreSQL)
-- Python Data Analysis (Pandas)
-- Anomaly Detection (z-score)
-- Power BI & DAX
-- Reproducible Analytics Pipelines
+```
