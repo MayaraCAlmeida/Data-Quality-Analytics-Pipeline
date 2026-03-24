@@ -1,0 +1,17 @@
+# dados — não subir dados reais no repo
+*.xlsx
+*.xls
+
+
+# python
+__pycache__/
+*.pyc
+*.pyo
+.env
+venv/
+.venv/
+
+# sistema
+.DS_Store
+Thumbs.db
+desktop.ini
