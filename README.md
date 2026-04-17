@@ -1,156 +1,143 @@
 # Auditoria de Qualidade de Dados — Pipeline de Vendas
 
-## Resumo
+## Visão Geral
 
 Projeto de auditoria em dados de vendas usando Python, PostgreSQL e Power BI. O foco não foi gerar métricas — foi garantir que os dados faziam sentido antes de qualquer análise.
 
-No processo, encontrei uma falha de carga que teria distorcido completamente qualquer indicador de performance gerado em cima desses dados.
+No processo, foi identificada uma **falha de carga que teria distorcido completamente qualquer indicador de performance** gerado em cima desses dados: uma queda brusca em julho seguida de pico em agosto que, na prática, não existia — eram dados faltando.
 
-> Dataset sintético criado para simular um ambiente corporativo real.
+### Anomalias Encontradas
+
+| Anomalia | Indicador | Conclusão |
+|---|---|---|
+| **Julho/2025** | 32 pedidos, z = -2.4, cobertura de 6,5% | Carga parcial — não foi queda de vendas |
+| **Agosto/2025** | 723 pedidos, z = +1.9 | Pedidos de julho chegando com atraso na base |
+| **Janeiro/2026** | 13 pedidos, z = -2.5, cobertura de 3,2% | Extração incompleta, mesmo padrão de julho |
+
+### Problemas Estruturais Identificados
+
+| Indicador | Resultado |
+|---|---|
+| Nulos em `valor_total` | 106 registros (2,1%) |
+| `pedido_id` duplicados | 100 registros |
+| Dias sem pedido | 29 (01/07 a 29/07) |
+| Pedidos com valor divergente | 246 registros |
 
 ---
 
 ## Estrutura do Projeto
 
-```
+```plaintext
 .
-├── pedidos.csv
-├── itens_pedido.csv
-├── analise.py
-├── diagnostico_dados.py
-├── investigar_anomalias.py
-├── postgres.sql
-├── DASHBOARD.pbix
-└── tema-dark-dashboard.json
+├── pedidos.csv                  # Base de pedidos
+├── itens_pedido.csv             # Base de itens por pedido
+│
+├── analise.py                   # Exploração inicial e cálculo de receita/volume
+├── diagnostico_dados.py         # Varredura automatizada de qualidade
+├── investigar_anomalias.py      # Drill-down nos meses sinalizados
+│
+├── postgres.sql                 # Queries de validação e views corrigidas
+├── DASHBOARD.pbix               # Dashboard interativo no Power BI
+└── tema-dark-dashboard.json     # Tema visual dark do dashboard
 ```
 
 ---
 
 ## Fluxo de Trabalho
 
-### Exploração Inicial — Python
+```
+pedidos.csv + itens_pedido.csv
+           │
+           ▼
+       analise.py
+  (exploração inicial,
+   receita e volume)
+           │
+     anomalia detectada
+     (julho/agosto)
+           │
+           ▼
+      postgres.sql
+  (validação estruturada,
+   views corrigidas)
+           │
+    ┌──────┴──────────────┐
+    ▼                     ▼
+diagnostico_dados.py  investigar_anomalias.py
+(varredura completa)  (drill-down por mês)
+           │
+           ▼
+      DASHBOARD.pbix
+   (Power BI com DAX)
+```
 
-Comecei com `analise.py` pra ter uma visão geral: carreguei as bases, removi duplicatas, tratei nulos, converti datas e calculei receita e volume por mês.
+### Etapas
 
-Foi aí que apareceu a primeira estranheza: julho com volume muito abaixo do normal e agosto com um pico logo em seguida. Poderia ser sazonalidade, mas a queda foi abrupta demais pra ignorar.
+**1. Exploração Inicial (`analise.py`)**
+Carregamento das bases, remoção de duplicatas, tratamento de nulos, conversão de datas e cálculo de receita e volume por mês. Foi aqui que apareceu a primeira estranheza: julho com volume muito abaixo do normal e agosto com pico logo em seguida.
 
----
+**2. Validação Estruturada (`postgres.sql`)**
+Importação para PostgreSQL com queries analíticas cobrindo receita mensal, taxa de cancelamento, ticket médio, top 10 clientes, pedidos com `valor_total` nulo, divergências entre `valor_total` e soma dos itens, e verificação de duplicidade. Inclui a view `pedidos_receita_corrigida` com `COALESCE` para corrigir os nulos.
 
-### Validação Estruturada — PostgreSQL
+**3. Dashboard (`DASHBOARD.pbix`)**
+Visualização com DAX acompanhando receita, volume, ticket médio, taxa por status e evolução mensal. A anomalia de julho ficou ainda mais evidente visualmente. Tema dark configurado via `tema-dark-dashboard.json`.
 
-Importei as bases pro PostgreSQL e fui fundo via `postgres.sql`:
+**4. Diagnóstico Automatizado (`diagnostico_dados.py`)**
+Varredura completa da base: nulos por coluna, duplicatas de `pedido_id` e `item_id`, lacunas de dias sem pedidos, meses com volume anômalo via z-score, e consistência entre tabelas (itens órfãos, pedidos sem item, divergência de valores).
 
-- Receita mensal recalculada pelos itens (`SUM(quantidade * preco_unitario)`)
-- Taxa de cancelamento por mês
-- Ticket médio e top 10 clientes por receita
-- Receita por categoria ao longo do tempo
-- Pedidos com `valor_total` nulo
-- Divergências entre `valor_total` e soma dos itens
-- View `pedidos_receita_corrigida` com `COALESCE` pra corrigir os nulos
-- Verificação de duplicidade
-
-**O que encontrei:**
-
-- 106 pedidos com `valor_total` nulo (2,1%)
-- 100 `pedido_id` duplicados
-- 246 pedidos com valor divergente da soma dos itens — parte atribuída a frete e desconto, parte a erro mesmo
-
----
-
-### Dashboard — Power BI
-
-Com os dados tratados, montei o `DASHBOARD.pbix` com DAX pra acompanhar receita, volume, ticket médio, taxa por status e evolução mensal.
-
-Visualmente, a anomalia de julho ficou ainda mais evidente. O tema dark foi configurado via `tema-dark-dashboard.json`.
-
----
-
-### Diagnóstico Automatizado
-
-Pra não depender de análise visual, criei dois scripts que rodam no terminal:
-
-#### `diagnostico_dados.py`
-Varredura completa da base:
-- Nulos por coluna
-- Duplicatas (`pedido_id` e `item_id`)
-- Lacunas de dias sem pedidos
-- Meses com volume anômalo via z-score
-- Consistência entre tabelas: itens órfãos, pedidos sem item, divergência de valores
-
-#### `investigar_anomalias.py`
-Drill-down nos meses que o diagnóstico sinalizou:
-- Cobertura de dias com pedido no mês
-- Classifica se foi queda real ou carga parcial de dados
+**5. Investigação de Anomalias (`investigar_anomalias.py`)**
+Drill-down nos meses sinalizados pelo diagnóstico: cobertura de dias com pedido no mês e classificação automática entre queda real de vendas e carga parcial de dados.
 
 ---
 
 ## Resultados
 
 | Indicador | Resultado |
-|-----------|-----------|
+|---|---|
 | Período analisado | 2025-01-01 a 2026-01-01 |
 | Total de pedidos | 5.100 |
 | Receita total | R$ 12.691.970,31 |
 | Ticket médio | R$ 2.541,44 |
-| Nulos em valor_total | 106 (2,1%) |
-| pedido_id duplicados | 100 |
+| Nulos em `valor_total` | 106 (2,1%) |
+| `pedido_id` duplicados | 100 |
 | Dias sem pedido | 29 (01/07 a 29/07) |
 | Pedidos com valor divergente | 246 |
-
----
-
-## Anomalias Identificadas
-
-### Julho/2025
-- 32 pedidos (z = -2.4)
-- Apenas 2 dias com registros
-- Cobertura: 6,5%
-
-**Conclusão:** carga parcial de dados — o mês não estava incompleto por falta de vendas.
-
----
-
-### Janeiro/2026
-- 13 pedidos (z = -2.5)
-- Cobertura: 3,2%
-
-**Conclusão:** extração incompleta, mesmo padrão de julho.
-
----
-
-### Agosto/2025
-- 723 pedidos (z = +1.9)
-
-Pico logo depois de julho. Provavelmente pedidos que deveriam ter sido capturados em julho e chegaram com atraso na base.
-
----
-
-## Conclusão
-
-Sem a auditoria, qualquer análise de performance teria mostrado uma queda brusca em julho seguida de recuperação em agosto — e alguém poderia tomar uma decisão de negócio em cima disso.
-
-A queda não existia. Era dado faltando.
-
-> Qualidade vem antes de insight.
-
----
-
-## Tecnologias
-
-- Python (Pandas)
-- PostgreSQL
-- Power BI (DAX)
-- Estatística básica (z-score)
 
 ---
 
 ## Como Executar
 
 ```bash
-# Diagnóstico completo
+# Diagnóstico completo da base
 python diagnostico_dados.py pedidos.csv itens_pedido.csv
 
 # Investigação detalhada de anomalias
 python investigar_anomalias.py
 ```
 
+Para o Power BI, abra `DASHBOARD.pbix` no Power BI Desktop. Para aplicar o tema dark, acesse **Exibição > Temas > Procurar temas** e selecione `tema-dark-dashboard.json`.
+
+---
+
+## Tecnologias
+
+| Tecnologia | Uso |
+|---|---|
+| `pandas` | Exploração, limpeza e análise dos dados |
+| PostgreSQL | Validação estruturada e views corrigidas |
+| Power BI (DAX) | Dashboard interativo |
+| Z-score (scipy) | Detecção estatística de meses anômalos |
+
+---
+
+## Conclusão
+
+Sem a auditoria, qualquer análise de performance teria mostrado uma queda brusca em julho seguida de recuperação em agosto — e uma decisão de negócio poderia ter sido tomada em cima disso. A queda não existia. Era dado faltando.
+
+> Qualidade vem antes de insight.
+
+---
+
+## Responsável Técnica
+
+Desenvolvido por: **Mayara Almeida** 
