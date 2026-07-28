@@ -1,12 +1,12 @@
-# Auditoria de Qualidade de Dados — Pipeline de Vendas
+# Auditoria de Qualidade de Dados - Pipeline de Vendas
 
 ## Visão Geral
 
-Projeto de auditoria em dados de vendas usando Python, PostgreSQL e Power BI. O foco não foi gerar métricas — foi garantir que os dados faziam sentido antes de qualquer análise.
+Projeto de auditoria em dados de vendas usando Python, PostgreSQL e Power BI. O foco não foi gerar métricas mas sim foi garantir que os dados faziam sentido antes de qualquer análise.
 
-No processo, foi identificada uma **falha de carga que teria distorcido completamente qualquer indicador de performance** gerado em cima desses dados: uma queda brusca em julho seguida de pico em agosto que, na prática, não existia — eram dados faltando.
+No processo, foi identificada uma **falha de carga que teria distorcido completamente qualquer indicador de performance** gerado em cima desses dados: uma queda brusca em julho seguida de pico em agosto que, na prática, não existia pois eram dados faltando.
 
-> Dataset sintético criado para simular um ambiente corporativo real.
+> Dataset sintético criado para simular o ambiente corporativo real.
 
 ### Anomalias Encontradas
 
