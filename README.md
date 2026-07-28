@@ -122,7 +122,8 @@ Excluir a linha incompleta em vez de tratar como zero (`COALESCE`),
 porque um pedido sem valor lançado não é o mesmo que um pedido de
 valor zero — tratá-lo como zero inventaria um dado que não existe.
 
-Query completa: [`sql/qualidade_dados/ranking_clientes_null_fix.sql`](sql/qualidade_dados/ranking_clientes_null_fix.sql)
+Query completa: [`sql/qualidade_dados/ranking_clientes_null_fix.sql`](ranking_clientes_null_fix.sql)
+
 
 ---
 
