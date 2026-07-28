@@ -6,6 +6,8 @@ Projeto de auditoria em dados de vendas usando Python, PostgreSQL e Power BI. O 
 
 No processo, foi identificada uma **falha de carga que teria distorcido completamente qualquer indicador de performance** gerado em cima desses dados: uma queda brusca em julho seguida de pico em agosto que, na prática, não existia — eram dados faltando.
 
+> Dataset sintético criado para simular um ambiente corporativo real.
+
 ### Anomalias Encontradas
 
 | Anomalia | Indicador | Conclusão |
@@ -103,6 +105,25 @@ Drill-down nos meses sinalizados pelo diagnóstico: cobertura de dias com pedido
 | Dias sem pedido | 29 (01/07 a 29/07) |
 | Pedidos com valor divergente | 246 |
 
+### Achado - NULL corrompendo RANK() silenciosamente via ORDER BY
+
+Os 106 nulos em `valor_total` (já identificados na auditoria inicial)
+tinham um efeito colateral que só apareceu ao construir um ranking de
+clientes por faturamento: o Postgres trata NULL como maior que
+qualquer valor numérico em `ORDER BY ... DESC`, então clientes com
+pedido sem valor lançado apareciam em 1º lugar — à frente de clientes
+com dezenas de milhares de reais em vendas reais.
+
+**Detecção:** o topo do ranking não fazia sentido de negócio (cliente
+em 1º lugar sem valor exibido).
+
+**Correção:** `WHERE valor_total IS NOT NULL` antes do agrupamento.
+Excluir a linha incompleta em vez de tratar como zero (`COALESCE`),
+porque um pedido sem valor lançado não é o mesmo que um pedido de
+valor zero — tratá-lo como zero inventaria um dado que não existe.
+
+Query completa: [`sql/qualidade_dados/ranking_clientes_null_fix.sql`](sql/qualidade_dados/ranking_clientes_null_fix.sql)
+
 ---
 
 ## Como Executar
@@ -134,10 +155,11 @@ Para o Power BI, abra `DASHBOARD.pbix` no Power BI Desktop. Para aplicar o tema 
 
 Sem a auditoria, qualquer análise de performance teria mostrado uma queda brusca em julho seguida de recuperação em agosto — e uma decisão de negócio poderia ter sido tomada em cima disso. A queda não existia. Era dado faltando.
 
+
 > Qualidade vem antes de insight.
 
 ---
 
 ## Responsável Técnica
 
-Desenvolvido por: **Mayara Almeida** 
+Desenvolvido por: **Mayara C. Almeida** 
