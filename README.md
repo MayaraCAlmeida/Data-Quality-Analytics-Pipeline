@@ -104,6 +104,7 @@ Drill-down nos meses sinalizados pelo diagnóstico: cobertura de dias com pedido
 | `pedido_id` duplicados | 100 |
 | Dias sem pedido | 29 (01/07 a 29/07) |
 | Pedidos com valor divergente | 246 |
+| Cobertura de jan/2026 | 1 de ~31 dias — mês incompleto |
 
 ### Achado - NULL corrompendo RANK() silenciosamente via ORDER BY
 
@@ -123,6 +124,32 @@ porque um pedido sem valor lançado não é o mesmo que um pedido de
 valor zero — tratá-lo como zero inventaria um dado que não existe.
 
 Query completa: [`sql/qualidade_dados/ranking_clientes_null_fix.sql`](ranking_clientes_null_fix.sql)
+
+### Achado - Mês incompleto inflando variação percentual mês a mês
+
+Ao calcular variação de faturamento mês a mês com `LAG()`, janeiro/2026
+apareceu com queda de -99,58% em relação a dezembro/2025, número que,
+lido sem contexto, pareceria uma queda catastrófica de vendas.
+
+**Detecção:** o volume de pedidos de janeiro/2026 (13 pedidos) destoava
+demais de qualquer outro mês do dataset (~400-800 pedidos/mês). Confirmado
+via `MIN(data_pedido)` e `MAX(data_pedido)` filtrando esse período: o
+dataset contém um único dia de janeiro/2026 (01/01), não o mês inteiro.
+O mesmo padrão de corte de extração já identificado em julho/2025.
+
+**Correção:** exclusão explícita de meses incompletos antes do cálculo de
+variação (`WHERE data_pedido < '2026-01-01'`), documentando o corte na
+própria query. Sem essa exclusão, qualquer dashboard ou relatório
+gerencial mostraria o último mês do período como o pior resultado do
+ano — quando na verdade é ausência de dado, não queda de faturamento.
+
+**Achado adicional no mesmo exercício:** a query também expôs que o
+percentual de perda por cancelamento + devolução sobre a receita
+aprovada varia entre ~20% e ~42% ao mês, de forma consistente — métrica
+que não estava sendo calculada antes e que tem mais relevância de
+negócio do que a variação mês a mês isolada.
+
+Query completa: [`sql/qualidade_dados/variacao_mensal_lag.sql`](variacao_mensal_lag.sql)
 
 
 ---
