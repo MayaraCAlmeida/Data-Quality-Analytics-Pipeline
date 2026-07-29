@@ -1,4 +1,3 @@
-
 ## TREINANDO WINDOW FUNCTIONS
 
 
@@ -9,10 +8,12 @@ A base de pedidos tinha 29 dias inteiros sem nenhum registro em julho, por falha
 A correção: usei generate_series pra reconstruir o calendário completo, preenchendo os dias sem pedido com zero via LEFT JOIN + COALESCE.
 Só depois disso a média móvel (AVG() OVER) e a variação dia a dia (LAG()) mostraram o que realmente aconteceu: a queda abrupta num único dia (não gradual), e uma recuperação igualmente abrupta 29 dias depois. Esse padrão de degrau, não declínio, é o que diferencia uma falha técnica de uma queda real de demanda.
 
-
 |---|---|---|
 | ![Query](screenshots/screenshot-query.png) | ![Output](screenshots/output-jun-jul.png) | ![Output](screenshots/output-jul-ago.png) |
 
+https://github.com/MayaraCAlmeida/Data-Quality-Analytics-Pipeline/tree/main/screenshots
+
+| [Screenshots](https://github.com/MayaraCAlmeida/Data-Quality-Analytics-Pipeline/tree/main/screenshots) | 
 
 Testei RANK() vs DENSE_RANK() forçando um empate de propósito. Sem empate real nos dados, as duas funções retornam o mesmo resultado e nunca se percebe a diferença.
 
@@ -32,3 +33,5 @@ Window function errada não quebra a query. Ela só devolve um número plausíve
 
 
 | ![Query](screenshots/screenshot-query2.png) | ![Output](screenshots/output-dense-rank) |
+
+| [Screenshots](https://github.com/MayaraCAlmeida/Data-Quality-Analytics-Pipeline/tree/main/screenshots) | 
