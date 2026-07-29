@@ -1,1 +1,34 @@
 
+## TREINANDO WINDOW FUNCTIONS
+
+
+Reprocessando um projeto antigo de detecção de anomalia (que antes usava z-score) mas agora usando window functions em SQL, encontrei, no caminho, um erro que eu mesma tinha cometido na primeira versão.
+
+A base de pedidos tinha 29 dias inteiros sem nenhum registro em julho, por falha de carga. Minha primeira tentativa de média móvel usou ROWS BETWEEN 6 PRECEDING, mas como os dias faltantes simplesmente não existiam na tabela, a "janela de 7 dias" na prática misturava dados de meses diferentes, mascarando o problema em vez de expor ele.
+
+A correção: usei generate_series pra reconstruir o calendário completo, preenchendo os dias sem pedido com zero via LEFT JOIN + COALESCE.
+Só depois disso a média móvel (AVG() OVER) e a variação dia a dia (LAG()) mostraram o que realmente aconteceu: a queda abrupta num único dia (não gradual), e uma recuperação igualmente abrupta 29 dias depois. Esse padrão de degrau, não declínio, é o que diferencia uma falha técnica de uma queda real de demanda.
+
+
+|---|---|---|
+| ![Query](screenshots/screenshot-query.png) | ![Output](screenshots/output-jun-jul.png) | ![Output](screenshots/output-jul-ago.png) |
+
+
+Testei RANK() vs DENSE_RANK() forçando um empate de propósito. Sem empate real nos dados, as duas funções retornam o mesmo resultado e nunca se percebe a diferença.
+
+Mas por que isso importa? Porque a pergunta de negócio muda dependendo de qual usa e usar a errada dá um número que parece certo, mas responde a pergunta errada.
+
+No exercício, forcei um empate de receita entre dois produtos da mesma categoria (Eletrônicos) pra ver o comportamento na prática. 
+
+Com RANK(): os dois produtos empatados ficam em 2º lugar, e o próximo produto pula direto pro 4º, o número 3 simplesmente não existe no ranking. 
+
+Com DENSE_RANK(): os dois empatados também ficam em 2º, mas o próximo produto vira 3º de verdade, a sequência nunca pula.
+
+Isso muda a resposta pra perguntas diferentes de negócio. Se a pergunta é "qual a posição exata desse produto no ranking de receita da categoria", RANK() é o certo e o buraco reflete a realidade de quantos itens estão empatados acima. 
+
+Se a pergunta é "quantos patamares distintos de receita existem nessa categoria", DENSE_RANK() é o certo, ele conta níveis reais, não posições infladas por empate.
+
+Window function errada não quebra a query. Ela só devolve um número plausível e errado. Validação importa tanto quanto sintaxe.
+
+
+| ![Query](screenshots/screenshot-query2.png) | ![Output](screenshots/output-dense-rank) |
